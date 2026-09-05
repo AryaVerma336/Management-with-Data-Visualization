@@ -34,14 +34,23 @@ import { insertProductSchema } from "@shared/schema";
 import type { Product } from "@shared/schema";
 
 interface ProductModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  isOpen?: boolean;
+  open?: boolean;
+  onClose?: () => void;
+  onOpenChange?: (open: boolean) => void;
   product?: Product | null;
 }
 
-export function ProductModal({ open, onOpenChange, product }: ProductModalProps) {
+export function ProductModal({ isOpen, open, onClose, onOpenChange, product }: ProductModalProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+
+  const isDialogOpen = open !== undefined ? open : (isOpen !== undefined ? isOpen : false);
+
+  const handleClose = () => {
+    if (onClose) onClose();
+    if (onOpenChange) onOpenChange(false);
+  };
 
   const formSchema = insertProductSchema.extend({
     price: z.string().min(1, t('product.validation.priceRequired')),
@@ -90,11 +99,12 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
     mutationFn: (data: any) => apiRequest('POST', '/api/products', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics/overview'] });
       toast({
         title: t('common.success'),
         description: t('toast.productCreated'),
       });
-      onOpenChange(false);
+      handleClose();
     },
   });
 
@@ -102,11 +112,12 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
     mutationFn: (data: any) => apiRequest('PATCH', `/api/products/${product?.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics/overview'] });
       toast({
         title: t('common.success'),
         description: t('toast.productUpdated'),
       });
-      onOpenChange(false);
+      handleClose();
     },
   });
 
@@ -133,21 +144,21 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
     { value: 'Food & Beverage', label: t('product.categories.food') },
     { value: 'Furniture', label: t('product.categories.furniture') },
     { value: 'Toys', label: t('product.categories.toys') },
-    { value: 'Books', label: t('product.categories.books') },
+    { value: 'Books & Office', label: t('product.categories.books') },
     { value: 'Sports', label: t('product.categories.sports') },
     { value: 'Other', label: t('product.categories.other') },
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isDialogOpen} onOpenChange={(val) => { if (!val) handleClose(); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-base font-bold">
             {product ? t('product.editProduct') : t('product.addNew')}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -156,7 +167,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
                   <FormItem>
                     <FormLabel>{t('product.productName')}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder={t('product.productNamePlaceholder')} data-testid="input-name" />
+                      <Input {...field} placeholder={t('product.productNamePlaceholder')} className="h-9 text-xs" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -169,7 +180,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
                   <FormItem>
                     <FormLabel>{t('product.sku')}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder={t('product.skuPlaceholder')} className="font-mono" data-testid="input-sku" />
+                      <Input {...field} placeholder={t('product.skuPlaceholder')} className="font-mono h-9 text-xs" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -186,7 +197,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
                     <FormLabel>{t('product.category')}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger data-testid="select-category-modal">
+                        <SelectTrigger className="h-9 text-xs">
                           <SelectValue placeholder={t('product.categoryPlaceholder')} />
                         </SelectTrigger>
                       </FormControl>
@@ -207,7 +218,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
                   <FormItem>
                     <FormLabel>{t('product.price')}</FormLabel>
                     <FormControl>
-                      <Input {...field} type="number" step="0.01" placeholder={t('product.pricePlaceholder')} data-testid="input-price" />
+                      <Input {...field} type="number" step="0.01" placeholder={t('product.pricePlaceholder')} className="h-9 text-xs" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -223,7 +234,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
                   <FormItem>
                     <FormLabel>{t('product.stock')}</FormLabel>
                     <FormControl>
-                      <Input {...field} type="number" placeholder={t('product.stockPlaceholder')} data-testid="input-stock" />
+                      <Input {...field} type="number" placeholder={t('product.stockPlaceholder')} className="h-9 text-xs" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -236,7 +247,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
                   <FormItem>
                     <FormLabel>{t('product.minStock')}</FormLabel>
                     <FormControl>
-                      <Input {...field} type="number" placeholder={t('product.minStockPlaceholder')} data-testid="input-min-stock" />
+                      <Input {...field} type="number" placeholder={t('product.minStockPlaceholder')} className="h-9 text-xs" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -247,22 +258,31 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
             <FormField
               control={form.control}
               name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('product.description')}</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} placeholder={t('product.descriptionPlaceholder')} rows={3} data-testid="input-description" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const { value, ...fieldProps } = field;
+                return (
+                  <FormItem>
+                    <FormLabel>{t('product.description')}</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...fieldProps}
+                        value={value || ""}
+                        placeholder={t('product.descriptionPlaceholder')}
+                        rows={3}
+                        className="text-xs"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">
+              <Button type="button" variant="outline" size="sm" onClick={handleClose} className="text-xs">
                 {t('product.cancel')}
               </Button>
-              <Button type="submit" disabled={isPending} data-testid="button-save">
+              <Button type="submit" size="sm" disabled={isPending} className="text-xs">
                 {isPending ? t('common.loading') : t('product.save')}
               </Button>
             </div>
